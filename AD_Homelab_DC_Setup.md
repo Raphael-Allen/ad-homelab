@@ -330,6 +330,106 @@ Get-ADDefaultDomainPasswordPolicy
 
 ---
 
+## Step 10 — Configure Group Policy Objects
+#gpo #group-policy #powershell #step-10 #security
+
+Creates and links three GPOs to the domain to enforce desktop and security settings.
+
+**Key concept:** GPOs write registry values to either HKLM (machine-wide, applies regardless of who logs in) or HKCU (per user profile). At their core, GPOs are just a mechanism for delivering and enforcing registry settings across the domain at scale — refreshing automatically every 90 minutes or on demand with `gpupdate /force`.
+
+```powershell
+# GPO 1 — Corporate Wallpaper
+New-GPO -Name "Corporate Wallpaper" -Comment "Sets corporate desktop wallpaper for all domain computers"
+New-GPLink -Name "Corporate Wallpaper" -Target "DC=corp,DC=local"
+Set-GPRegistryValue -Name "Corporate Wallpaper" -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "Wallpaper" -Type String -Value "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
+Set-GPRegistryValue -Name "Corporate Wallpaper" -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "WallpaperStyle" -Type String -Value "2"
+
+# GPO 2 — Disable USB Storage
+New-GPO -Name "Disable USB Storage" -Comment "Prevents users from using USB storage devices"
+New-GPLink -Name "Disable USB Storage" -Target "DC=corp,DC=local"
+Set-GPRegistryValue -Name "Disable USB Storage" -Key "HKLM\SYSTEM\CurrentControlSet\Services\USBSTOR" -ValueName "Start" -Type DWord -Value 4
+
+# GPO 3 — Disable Lock Screen
+New-GPO -Name "Disable Lock Screen" -Comment "Disables the Windows lock screen for domain users"
+New-GPLink -Name "Disable Lock Screen" -Target "DC=corp,DC=local"
+Set-GPRegistryValue -Name "Disable Lock Screen" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" -ValueName "NoLockScreen" -Type DWord -Value 1
+```
+
+**GPOs created:**
+
+| GPO | Hive | Registry Key | Value | Purpose |
+|---|---|---|---|---|
+| Corporate Wallpaper | HKCU | ...\Policies\System | Wallpaper = img0.jpg | Sets domain wallpaper path |
+| Corporate Wallpaper | HKCU | ...\Policies\System | WallpaperStyle = 2 | Stretched display mode |
+| Disable USB Storage | HKLM | ...\USBSTOR | Start = 4 | Disables USB storage service |
+| Disable Lock Screen | HKLM | ...\Personalization | NoLockScreen = 1 | Removes Windows lock screen |
+
+**WallpaperStyle values reference:**
+- `0` — Centred
+- `1` — Tiled
+- `2` — Stretched
+- `3` — Fit
+- `4` — Fill
+
+**USBSTOR Start values reference:**
+- `3` — Enabled (default)
+- `4` — Disabled
+
+**Verify GPO application on client:**
+```powershell
+gpupdate /force
+gpresult /r
+```
+
+Look for all three GPOs listed under Applied Group Policy Objects. Policy is applied from DC01.corp.local.
+
+---
+
+## Step 11 — Deploy Windows 10 Client and Join Domain
+#client #domain-join #powershell #step-11
+
+**Prerequisites:** Windows 10 Pro (Home does not support domain join). Deploy VM in VMware on the same NAT network as DC01.
+
+**On CLIENT01 — set DNS to point at DC01:**
+```powershell
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses "192.168.106.10"
+```
+
+**Verify connectivity to DC01:**
+```powershell
+ping 192.168.106.10
+```
+
+**Join the domain:**
+```powershell
+Add-Computer -DomainName "corp.local" -Restart
+```
+
+Provide Domain Administrator credentials when prompted. CLIENT01 will restart and join corp.local.
+
+**On DC01 — move CLIENT01 to Corp Computers OU:**
+```powershell
+Get-ADComputer -Identity "CLIENT01" | Move-ADObject -TargetPath "OU=Corp Computers,DC=corp,DC=local"
+```
+
+**Verify:**
+```powershell
+Get-ADComputer -Identity "CLIENT01"
+```
+
+DistinguishedName should show `CN=CLIENT01,OU=Corp Computers,DC=corp,DC=local`.
+
+**Test domain user login from CLIENT01:**
+
+On the CLIENT01 login screen select Other User and log in with:
+- Username: `CORP\jsmith`
+- Password: `Passw0rd123!`
+
+**To log back in with the local account if needed:**
+- Username: `.\administrator`
+
+---
+
 ## FSMO Roles Reference
 #fsmo #reference
 
@@ -361,19 +461,18 @@ In a single domain controller environment DC01 holds all five FSMO roles:
 | Bulk create users with PowerShell | ✅ Complete |
 | Create security groups | ✅ Complete |
 | Configure domain password policy | ✅ Complete |
-| Configure Group Policy Objects | ⬜ Pending |
-| Set up Windows 10 client VM | ⬜ Pending |
-| Join client to domain | ⬜ Pending |
-| Test user login from client | ⬜ Pending |
-| Push scripts to GitHub | ⬜ Pending |
+| Configure Group Policy Objects | ✅ Complete |
+| Set up Windows 10 client VM | ✅ Complete |
+| Join client to domain | ✅ Complete |
+| Test user login from client | ✅ Complete |
+| Push scripts to GitHub | ✅ Complete |
 
 ---
 
 ## Next Steps
 #next-steps
 
-1. Deploy Windows 10 client VM in VMware
-2. Join client to corp.local domain
-3. Test a domain user login from the client
-4. Configure Group Policy Objects — desktop restrictions, drive mappings
-5. Push all scripts and documentation to GitHub with README
+- Add second Domain Controller for redundancy
+- Configure fine-grained password policies per OU
+- Expand GPOs — drive mappings, software restriction policies
+z
