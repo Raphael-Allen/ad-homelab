@@ -123,11 +123,11 @@ The script will verify prerequisites, create the OU structure, bulk create users
 
 ## Roadmap
 
-- [ ] Deploy Windows 10 client VM and join to corp.local domain
-- [ ] Test domain user login from client machine
-- [ ] Configure Group Policy Objects — desktop restrictions, drive mappings
-- [ ] Add second Domain Controller for redundancy
-- [ ] Document client join process with PowerShell
+- [x] Deploy Windows 10 client VM and join to corp.local domain
+- [x] Test domain user login from client machine
+- [x] Configure Group Policy Objects — desktop restrictions, drive mappings
+- [x] Add second Domain Controller for redundancy
+- [x] Document client join process with PowerShell
 
 ---
 
