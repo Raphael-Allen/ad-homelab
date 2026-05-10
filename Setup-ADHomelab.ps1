@@ -209,18 +209,67 @@ Get-ADDefaultDomainPasswordPolicy | Select-Object `
     LockoutDuration | Format-List
 
 # ============================================================
-# SECTION 7 — Final Summary
+# SECTION 7 — Configure Group Policy Objects
+# ============================================================
+
+Write-Host "`n--- Creating Group Policy Objects ---" -ForegroundColor Cyan
+
+# GPO 1 — Corporate Wallpaper
+try {
+    New-GPO -Name "Corporate Wallpaper" -Comment "Sets corporate desktop wallpaper for all domain computers" -ErrorAction Stop
+    New-GPLink -Name "Corporate Wallpaper" -Target "DC=corp,DC=local" -ErrorAction Stop
+    Set-GPRegistryValue -Name "Corporate Wallpaper" -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "Wallpaper" -Type String -Value "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
+    Set-GPRegistryValue -Name "Corporate Wallpaper" -Key "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "WallpaperStyle" -Type String -Value "2"
+    Write-Host "Created GPO: Corporate Wallpaper" -ForegroundColor Green
+} catch {
+    Write-Host "Error creating Corporate Wallpaper GPO: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# GPO 2 — Disable USB Storage
+try {
+    New-GPO -Name "Disable USB Storage" -Comment "Prevents users from using USB storage devices" -ErrorAction Stop
+    New-GPLink -Name "Disable USB Storage" -Target "DC=corp,DC=local" -ErrorAction Stop
+    Set-GPRegistryValue -Name "Disable USB Storage" -Key "HKLM\SYSTEM\CurrentControlSet\Services\USBSTOR" -ValueName "Start" -Type DWord -Value 4
+    Write-Host "Created GPO: Disable USB Storage" -ForegroundColor Green
+} catch {
+    Write-Host "Error creating Disable USB Storage GPO: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# GPO 3 — Disable Lock Screen
+try {
+    New-GPO -Name "Disable Lock Screen" -Comment "Disables the Windows lock screen for domain users" -ErrorAction Stop
+    New-GPLink -Name "Disable Lock Screen" -Target "DC=corp,DC=local" -ErrorAction Stop
+    Set-GPRegistryValue -Name "Disable Lock Screen" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" -ValueName "NoLockScreen" -Type DWord -Value 1
+    Write-Host "Created GPO: Disable Lock Screen" -ForegroundColor Green
+} catch {
+    Write-Host "Error creating Disable Lock Screen GPO: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# ============================================================
+# SECTION 8 — Client VM Domain Join
+# ============================================================
+# NOTE: Run these commands manually on the client VM after
+# Windows 10 Pro is installed. Included here for documentation.
+#
+# Set DNS to point at DC01:
+#   Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses "192.168.106.10"
+#
+# Join the domain:
+#   Add-Computer -DomainName "corp.local" -Restart
+#
+# Move computer to Corp Computers OU (run on DC01 after client joins):
+#   Get-ADComputer -Identity "CLIENT01" | Move-ADObject -TargetPath "OU=Corp Computers,DC=corp,DC=local"
+
+# ============================================================
+# SECTION 9 — Final Summary
 # ============================================================
 
 Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
-Write-Host "Domain:        corp.local" -ForegroundColor White
+Write-Host "Domain:            corp.local" -ForegroundColor White
 Write-Host "Domain Controller: DC01 (192.168.106.10)" -ForegroundColor White
-Write-Host "OUs created:   Corp Users, Corp Computers, Corp Groups, IT, HR, Finance, Sales" -ForegroundColor White
-Write-Host "Users created: 10 users across IT, HR, Finance, Sales" -ForegroundColor White
-Write-Host "Groups created: IT Team, HR Team, Finance Team, Sales Team" -ForegroundColor White
-Write-Host "Password policy: Complexity enabled, 10 char min, 90 day expiry, lockout after 5 attempts" -ForegroundColor White
-Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "  1. Deploy Windows 10 client VM in VMware" -ForegroundColor White
-Write-Host "  2. Join client to corp.local domain" -ForegroundColor White
-Write-Host "  3. Test domain user login from client" -ForegroundColor White
-Write-Host "  4. Configure Group Policy Objects" -ForegroundColor White
+Write-Host "OUs created:       Corp Users, Corp Computers, Corp Groups, IT, HR, Finance, Sales" -ForegroundColor White
+Write-Host "Users created:     10 users across IT, HR, Finance, Sales" -ForegroundColor White
+Write-Host "Groups created:    IT Team, HR Team, Finance Team, Sales Team" -ForegroundColor White
+Write-Host "Password policy:   Complexity enabled, 10 char min, 90 day expiry, lockout after 5 attempts" -ForegroundColor White
+Write-Host "GPOs created:      Corporate Wallpaper, Disable USB Storage, Disable Lock Screen" -ForegroundColor White
+Write-Host "`nAll steps complete. See AD_Homelab_DC_Setup.md for full documentation." -ForegroundColor Green
